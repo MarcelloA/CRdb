@@ -34,4 +34,12 @@ public class ControllerAdvisor extends ResponseEntityExceptionHandler {
     ResponseEntity<String> handleIllegalArgumentException(IllegalArgumentException e){
         return new ResponseEntity<>(e.getMessage(),HttpStatus.BAD_REQUEST);
     }
+
+    @ExceptionHandler(DisciplinaNaoEncontrada.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ResponseBody
+    ResponseEntity<String> handleDisciplinaNaoEncontradaException(DisciplinaNaoEncontrada e){
+        return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+    }
+
 }

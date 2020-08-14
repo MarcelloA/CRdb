@@ -17,7 +17,7 @@ import javax.servlet.ServletException;
 import javax.validation.Valid;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/auth")
 public class LoginControlador {
 
     @Autowired

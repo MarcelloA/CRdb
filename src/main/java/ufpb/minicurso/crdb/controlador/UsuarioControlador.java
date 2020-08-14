@@ -16,13 +16,13 @@ import ufpb.minicurso.crdb.servico.impl.UsuarioServico;
 import javax.validation.Valid;
 
 @RestController
-@RequestMapping("/usuario")
+@RequestMapping("/api/usuario")
 public class UsuarioControlador {
 
     @Autowired
     private UsuarioServico usuarioServico;
 
-    private UsuarioMapper mapper = new UsuarioMapperImpl();
+    private final UsuarioMapper mapper = new UsuarioMapperImpl();
 
     @PostMapping
     public ResponseEntity<UsuarioDTO> validarUsuario(@Valid @RequestBody Usuario usuario){

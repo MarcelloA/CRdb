@@ -1,6 +1,8 @@
 package ufpb.minicurso.crdb.entidade;
 
 import javax.persistence.Column;
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -28,12 +30,28 @@ public class Avaliacao {
 
     @Column
     @NotNull
+    @Max(10)
+    @Min(0)
     private Double nota;
 
     @Column
-    @NotNull
+    @Max(1)
+    @Min(0)
     private Integer favorito;
 
     @CreatedDate
     private LocalDateTime criadoEm;
+
+    public Avaliacao(AvaliacaoId avaliacaoId, String comentario, LocalDateTime criadoEm) {
+        this.avaliacaoId = avaliacaoId;
+        this.comentario = comentario;
+        this.criadoEm = criadoEm;
+    }
+
+    public Avaliacao(AvaliacaoId avaliacaoId, Double nota, LocalDateTime criadoEm) {
+        this.avaliacaoId = avaliacaoId;
+        this.nota = nota;
+        this.criadoEm = criadoEm;
+    }
+
 }
