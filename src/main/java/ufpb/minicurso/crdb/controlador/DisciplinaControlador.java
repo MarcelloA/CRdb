@@ -62,7 +62,7 @@ public class DisciplinaControlador {
                 avaliacaoDTO.getDisciplinaId(), avaliacaoDTO.getEmail()) , HttpStatus.OK);
     }
 
-    @PostMapping("/avaliacao/favoritar")
+    @PutMapping("/avaliacao/favoritar")
     public ResponseEntity<AvaliacaoDTO> setDisciplinaAvaliacaoFavorito(@RequestHeader("Authorization") String header,
                                                                        @Valid
                                                                        @RequestBody AvaliacaoDTO avaliacaoDTO) throws ServletException {
