@@ -28,7 +28,7 @@ API para classificacao e reviews de disciplinas
 * Body: campos requisitados são: `email`, `disciplinaId`
 
 ### Caso de uso 5: Dar/retirar like em uma disciplina
-* Method: `POST`
+* Method: `PUT`
 * Endpoint: `localhost:8080/v1/api/disciplina/avaliacao/favoritar`
 * Header: `Authorization`
 * Body: campos requisitados são: `email`, `disciplinaId`
