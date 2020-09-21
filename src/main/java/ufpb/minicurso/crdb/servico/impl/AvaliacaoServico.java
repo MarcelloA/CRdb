@@ -1,150 +1,155 @@
 package ufpb.minicurso.crdb.servico.impl;
 
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import ufpb.minicurso.crdb.entidade.Avaliacao;
-import ufpb.minicurso.crdb.entidade.AvaliacaoId;
-import ufpb.minicurso.crdb.entidade.Disciplina;
-import ufpb.minicurso.crdb.entidade.Usuario;
+import ufpb.minicurso.crdb.entidade.*;
+import ufpb.minicurso.crdb.excecao.DisciplinaNaoEncontradaExcecao;
+import ufpb.minicurso.crdb.excecao.NotaInvalidaExcecao;
 import ufpb.minicurso.crdb.repositorio.AvaliacaoRepositorio;
+import ufpb.minicurso.crdb.repositorio.DisciplinaRepositorio;
 import ufpb.minicurso.crdb.servico.interfaces.AvaliacaoServicoInterface;
 
-import javax.servlet.ServletException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
+@RequiredArgsConstructor
 @Service
-@AllArgsConstructor
-@NoArgsConstructor
 public class AvaliacaoServico implements AvaliacaoServicoInterface {
+    private final AvaliacaoRepositorio avaliacaoRepositorio;
+    private final DisciplinaRepositorio disciplinaRepositorio;
 
-    @Autowired
-    private AvaliacaoRepositorio avaliacaoRepositorio;
+    private Avaliacao instanciandoAvaliacaoVazia(Long disciplinaId)  {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        Usuario usuario = new Usuario(email,"","","",
+                new ArrayList<>(Collections.singletonList(Funcao.ROLE_USUARIO)),
+                Collections.emptyList());
+        Disciplina disciplina = new Disciplina(disciplinaId,"",Collections.emptyList());
+        AvaliacaoId avaliacaoId = new AvaliacaoId(usuario,disciplina);
+        Comentario comentario = new Comentario(-1L,false,"", new Avaliacao());
 
-    @Autowired
-    private DisciplinaServico disciplinaServico;
+        Avaliacao avaliacao = new Avaliacao(avaliacaoId, comentario,null,false, LocalDateTime.now());
 
-    @Autowired
-    private UsuarioServico usuarioServico;
+        avaliacao.getComentario().setAvaliacao(avaliacao);
 
-    private Avaliacao avaliacao;
-    private AvaliacaoId avaliacaoId;
-    private Usuario usuario;
-    private Disciplina disciplina;
+        return avaliacao;
+    }
 
-    private Avaliacao setAvaliacaoComentario(Usuario usuario, Disciplina disciplina, String comentario){
-        AvaliacaoId avaId = new AvaliacaoId(usuario, disciplina);
-        if(this.avaliacaoRepositorio.findById(avaId).isPresent()){
-            avaliacao = this.avaliacaoRepositorio.findById(avaId).get();
-            if(avaliacao.getCriadoEm() == null){
-                if(avaliacao.getFavorito() == null){
-                    return new Avaliacao(avaId,comentario,avaliacao.getNota(), 0,LocalDateTime.now());
-                }
-                return new Avaliacao(avaId,comentario,avaliacao.getNota(), avaliacao.getFavorito(),LocalDateTime.now());
-            } else {
-                return new Avaliacao(avaId,comentario,avaliacao.getNota(), avaliacao.getFavorito(),avaliacao.getCriadoEm());
+    private Boolean disciplinaEncontrada(Long disciplinaId){
+        disciplinaRepositorio.findById(disciplinaId).orElseThrow(() -> new DisciplinaNaoEncontradaExcecao("Id da disciplina nao encontrado"));
+        return true;
+    }
+
+    @Override
+    public Avaliacao comentar(Long disciplinaId, String comentario) {
+        Avaliacao avaliacao = instanciandoAvaliacaoVazia(disciplinaId);
+
+        if(comentario.equals("")) return avaliacao;
+
+        if(disciplinaEncontrada(disciplinaId)) {
+            String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+            avaliacao = avaliacaoRepositorio.findByAvaliacaoIdUsuarioEmailAndAvaliacaoIdDisciplinaId(email, disciplinaId);
+
+            if(avaliacao == null) {
+                avaliacao = instanciandoAvaliacaoVazia(disciplinaId);
+
+                avaliacao.setComentario(instanciandoComentario(true, comentario, new Avaliacao()));
+
+                avaliacao.getComentario().setAvaliacao(avaliacao);
+
+                avaliacaoRepositorio.save(avaliacao);
+                return avaliacao;
             }
-        } else {
-            return new Avaliacao(avaId, comentario,0.0, 0, LocalDateTime.now());
+
+            avaliacao.setComentario(instanciandoComentario(true,comentario, avaliacao));
+            avaliacaoRepositorio.save(avaliacao);
         }
+        return avaliacao;
     }
 
-    private Avaliacao setAvaliacaoNota(Usuario usuario, Disciplina disciplina, Double nota){
-        AvaliacaoId avaId = new AvaliacaoId(usuario, disciplina);
+    private Comentario instanciandoComentario(boolean visibilidade, String anotacao, Avaliacao avaliacao){
+        Comentario comentario = new Comentario();
+        comentario.setVisibilidade(visibilidade);
+        comentario.setComentario(anotacao);
+        comentario.setAvaliacao(avaliacao);
 
-        if(this.avaliacaoRepositorio.findById(avaId).isPresent()){
-            avaliacao = this.avaliacaoRepositorio.findById(avaId).get();
+        return comentario;
+    }
 
-            if(avaliacao.getCriadoEm() == null){
-                if(avaliacao.getFavorito() == null){
-                    return new Avaliacao(avaId,avaliacao.getComentario(),nota,0, LocalDateTime.now());
-                }
-                return new Avaliacao(avaId,avaliacao.getComentario(),nota,avaliacao.getFavorito(), LocalDateTime.now());
-            } else {
-                return new Avaliacao(avaId,avaliacao.getComentario(),nota,avaliacao.getFavorito(), avaliacao.getCriadoEm());
+    @Override
+    public Comentario deletaComentario(Long disciplinaId) {
+        Avaliacao avaliacao = instanciandoAvaliacaoVazia(disciplinaId);
+
+        if(disciplinaEncontrada(disciplinaId)){
+            String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+            avaliacao = avaliacaoRepositorio.findByAvaliacaoIdUsuarioEmailAndAvaliacaoIdDisciplinaId(email, disciplinaId);
+
+            if(avaliacao == null) return instanciandoComentario(true,"Comentario nao foi deletado. Avaliacao nao encontrada", new Avaliacao());
+
+            avaliacao.getComentario().setVisibilidade(false);
+            avaliacaoRepositorio.save(avaliacao);
+        }
+        return avaliacao.getComentario();
+    }
+
+    @Override
+    public Avaliacao favoritarDisciplina(Long disciplinaId) {
+        Avaliacao avaliacao = instanciandoAvaliacaoVazia(disciplinaId);
+
+        if(disciplinaEncontrada(disciplinaId)){
+            String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+            avaliacao = avaliacaoRepositorio.findByAvaliacaoIdUsuarioEmailAndAvaliacaoIdDisciplinaId(email, disciplinaId);
+
+            if(avaliacao == null) return instanciandoAvaliacaoVazia(disciplinaId);
+
+            if(!avaliacao.getFavorito()) {
+                avaliacao.setFavorito(true);
+
+                avaliacaoRepositorio.save(avaliacao);
+                return avaliacao;
             }
-        }  else {
-            return new Avaliacao(avaId, "",nota, 0, LocalDateTime.now());
-        }
-    }
 
-    public Avaliacao getAvaliacao(String header,Long disciplinaId, String email) throws ServletException {
-        if(usuarioServico.temPermissao(header, email)){
-            return avaliacaoRepositorio.findByAvaliacaoIdUsuarioEmailAndAvaliacaoIdDisciplinaId(email, disciplinaId);
+            avaliacao.setFavorito(false);
+            avaliacaoRepositorio.save(avaliacao);
         }
-        return null;
+        return avaliacao;
     }
 
     @Override
-    public Avaliacao comentar(String header, String email, Long disciplinaId, String comentario)
-    throws ServletException{
-        if(usuarioServico.temPermissao(header,email)){
-            avaliacao = setAvaliacaoComentario(usuarioServico.findById(email),
-                    disciplinaServico.getDisciplinaPorId(disciplinaId), comentario);
+    public Avaliacao darNota(Long disciplinaId, Double campoNota) {
+        Avaliacao avaliacao = instanciandoAvaliacaoVazia(disciplinaId);
 
-            return avaliacaoRepositorio.save(avaliacao);
-        }
-        return null;
-    }
+        if(campoNota > 10 || campoNota < 0) throw new NotaInvalidaExcecao("Nota invalida");
 
-    @Override
-    @Transactional
-    public String deleteComentario(String header, Long disciplinaId, String email)
-    throws ServletException{
-        if(usuarioServico.temPermissao(header,email)){
-            if(avaliacaoRepositorio.deleteByAvaliacaoIdUsuarioEmailAndAvaliacaoIdDisciplinaId(email, disciplinaId) == 1) return " ";
-            return "Comentario Não deletado";
-        }
-        return null;
-    }
+        if(disciplinaEncontrada(disciplinaId)) {
+            String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
-    @Override
-    public Avaliacao favoritarDisciplina(String header, Long disciplinaId, String email) throws ServletException {
-        if(usuarioServico.temPermissao(header,email)){
-            usuario = usuarioServico.findById(email);
-            disciplina = disciplinaServico.getDisciplinaPorId(disciplinaId);
-            avaliacaoId = new AvaliacaoId(usuario,disciplina);
+            avaliacao = avaliacaoRepositorio.findByAvaliacaoIdUsuarioEmailAndAvaliacaoIdDisciplinaId(email, disciplinaId);
 
-            if(avaliacaoRepositorio.findById(avaliacaoId).isPresent()){
-                if(avaliacaoRepositorio.findById(avaliacaoId).get().getFavorito() == null ||
-                        avaliacaoRepositorio.findById(avaliacaoId).get().getFavorito() == 0){
-                    avaliacao = avaliacaoRepositorio.findById(avaliacaoId).get();
-                    avaliacao.setFavorito(1);
-                    avaliacaoRepositorio.save(avaliacao);
-                } else {
-                    avaliacao = avaliacaoRepositorio.findById(avaliacaoId).get();
-                    avaliacao.setFavorito(0);
-                    avaliacaoRepositorio.save(avaliacao);
-                }
+            if(avaliacao == null){
+                avaliacao = instanciandoAvaliacaoVazia(disciplinaId);
+                avaliacao.setNota(campoNota);
 
+                avaliacaoRepositorio.save(avaliacao);
+                return avaliacao;
             }
-            return avaliacaoRepositorio.findById(avaliacaoId).get();
+
+            avaliacao.setNota(campoNota);
+            avaliacaoRepositorio.save(avaliacao);
         }
-
-        return null;
+        return avaliacao;
     }
 
-    @Override
-    public Avaliacao darNota(String header, Long disciplinaId, String email, Double campoNota) throws ServletException {
-        if(usuarioServico.temPermissao(header, email)){
-
-            avaliacao = setAvaliacaoNota(usuarioServico.findById(email),
-                    disciplinaServico.getDisciplinaPorId(disciplinaId), campoNota);
-
-            return avaliacaoRepositorio.save(avaliacao);
-        }
-        return null;
+    public List<Avaliacao> encontrarAvaliacoesPorDisciplinaId(Long disciplinaId) {
+        return avaliacaoRepositorio.findAllByAvaliacaoIdDisciplinaId(disciplinaId);
     }
 
-    public List<Avaliacao> getListaAvaliacoes(Long disciplinaId){
-        return this.avaliacaoRepositorio.findAllByAvaliacaoIdDisciplinaId(disciplinaId);
-    }
-
-    public List<Avaliacao> findAll(){
+    public List<Avaliacao> listarTodasAvaliacoes(){
         return avaliacaoRepositorio.findAll();
     }
-
 }

@@ -1,35 +1,42 @@
 package ufpb.minicurso.crdb.controlador;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import ufpb.minicurso.crdb.dto.UsuarioDTO;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import ufpb.minicurso.crdb.dto.LoginDTO;
 import ufpb.minicurso.crdb.entidade.Usuario;
-import ufpb.minicurso.crdb.mapper.UsuarioMapper;
-import ufpb.minicurso.crdb.mapper.UsuarioMapperImpl;
 import ufpb.minicurso.crdb.servico.impl.UsuarioServico;
 
 import javax.validation.Valid;
 
 @RestController
-@RequestMapping("/api/usuario")
+@RequestMapping("/usuario")
+@RequiredArgsConstructor
 public class UsuarioControlador {
 
-    @Autowired
-    private UsuarioServico usuarioServico;
+    private final UsuarioServico usuarioServico;
 
-    private final UsuarioMapper mapper = new UsuarioMapperImpl();
-
-    @PostMapping
-    public ResponseEntity<UsuarioDTO> validarUsuario(@Valid @RequestBody Usuario usuario){
-        return salvaUsuario(usuario);
+    @PostMapping("/cadastro")
+    public ResponseEntity<String> cadastrarUsuario(@Valid @RequestBody Usuario usuario){
+        return new ResponseEntity<>(usuarioServico.cadastrar(usuario), HttpStatus.OK);
     }
 
-    private ResponseEntity<UsuarioDTO> salvaUsuario(Usuario usuario){
-        return new ResponseEntity<>(mapper.map(usuarioServico.save(usuario)), HttpStatus.OK);
+    @PostMapping("/login")
+    public ResponseEntity<String> signIn(@Valid @RequestBody LoginDTO usuario) {
+        return new ResponseEntity<>(usuarioServico.signIn(usuario), HttpStatus.OK);
+    }
+
+    @DeleteMapping("/deletar")
+    @PreAuthorize("hasRole('ROLE_USUARIO')")
+    public ResponseEntity<String> removerUsuario(){
+        return new ResponseEntity<>(usuarioServico.removerUsuario(), HttpStatus.OK);
+    }
+
+    @DeleteMapping("/admin/deletar/{email}")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<String> removerUsuarioPeloAdmin(@PathVariable("email") String email){
+        return new ResponseEntity<>(usuarioServico.removerUsuarioPeloAdmin(email), HttpStatus.OK);
     }
 }

@@ -1,68 +1,74 @@
 package ufpb.minicurso.crdb.servico.impl;
 
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import ufpb.minicurso.crdb.dto.LoginDTO;
+import ufpb.minicurso.crdb.entidade.Funcao;
 import ufpb.minicurso.crdb.entidade.Usuario;
 import ufpb.minicurso.crdb.repositorio.UsuarioRepositorio;
+import ufpb.minicurso.crdb.seguranca.JwtTokenProvedor;
 import ufpb.minicurso.crdb.servico.interfaces.UsuarioServicoInterface;
 
-import javax.servlet.ServletException;
-import java.util.List;
-import java.util.Optional;
+import java.util.ArrayList;
+import java.util.Collections;
 
 @Service
-@AllArgsConstructor
-@NoArgsConstructor
-public class UsuarioServico implements UsuarioServicoInterface{
-    @Autowired
-    private UsuarioRepositorio<Usuario,String> usuarioRepositorio;
+@RequiredArgsConstructor
+public class UsuarioServico implements UsuarioServicoInterface {
 
-    @Autowired
-    private JwtServico jwtServico;
+    private final UsuarioRepositorio<Usuario,String> usuarioRepositorio;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvedor jwtTokenProvedor;
+    private final AuthenticationManager authenticationManager;
 
-    public Usuario save(Usuario usuario){
-        return this.usuarioRepositorio.save(usuario);
+    public void autenticar(LoginDTO usuario) {
+        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(usuario.getEmail(), usuario.getSenha()));
     }
 
-    public List<Usuario> findByPrimeiroNome(String primeiroNome){
-        return this.usuarioRepositorio.findByPrimeiroNome(primeiroNome);
+    public String cadastrar(Usuario usuario) {
+        String nomeUsuario = usuario.getEmail();
+
+        if(usuarioRepositorio.existsById(nomeUsuario))
+            return "Usuario já cadatrado";
+
+        usuario.setSenha(passwordEncoder.encode(usuario.getSenha()));
+        usuario.setFuncoes(new ArrayList<>(Collections.singletonList(Funcao.ROLE_USUARIO)));
+
+        this.usuarioRepositorio.save(usuario);
+        return jwtTokenProvedor.criarToken(nomeUsuario, new ArrayList<>(Collections.singletonList(Funcao.ROLE_USUARIO)));
     }
 
-    public List<Usuario> findByUltimoNome(String ultimoNome){
-        return this.usuarioRepositorio.findByUltimoNome(ultimoNome);
-    }
-
-    @Override
-    public Usuario findById(String email) {
-        Optional<Usuario> usuario = usuarioRepositorio.findByEmail(email);
-        if(!usuario.isPresent())
-            throw new IllegalArgumentException("Usuario nao encontrado");
-        return usuario.get();
-    }
-
-    @Override
-    public boolean validarUsuarioSenha(LoginDTO usuario) {
-        Optional<Usuario> optUser = usuarioRepositorio.findByEmail(usuario.getEmail());
-        return optUser.isPresent() && optUser.get().getSenha().equals(usuario.getSenha());
+    public String signIn(LoginDTO usuario) {
+        autenticar(usuario);
+        return jwtTokenProvedor.criarToken(usuario.getEmail(), usuarioRepositorio.findByEmail(usuario.getEmail()).getFuncoes());
     }
 
     @Override
-    public boolean temPermissao(String authorizationHeader, String email) throws ServletException {
-        String subject = jwtServico.pegaSujeito(authorizationHeader);
-        Optional<Usuario> optUser = usuarioRepositorio.findByEmail(subject);
-        return optUser.isPresent() && optUser.get().getEmail().equals(email);
+    public Usuario encontrarUsuarioPorId(String email) {
+        return this.usuarioRepositorio.findByEmail(email);
     }
 
     @Override
-    public Usuario removerUsuario(String email, String authHeader) throws ServletException {
-        Usuario usuario = findById(email);
-        if (temPermissao(authHeader, email)) {
-            usuarioRepositorio.delete(usuario);
-            return usuario;
-        }
-        throw new ServletException("Usuario nao tem permissao");
+    public String removerUsuario() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        Usuario usuarioADeletar = encontrarUsuarioPorId(email);
+        usuarioRepositorio.delete(usuarioADeletar);
+
+        return "Usuario cujo email é " + usuarioADeletar.getEmail() + " foi deletado";
+    }
+
+    public String removerUsuarioPeloAdmin(String email){
+        Usuario usuarioADeletar = encontrarUsuarioPorId(email);
+        usuarioRepositorio.delete(usuarioADeletar);
+
+        return "Usuario cujo email é " + usuarioADeletar.getEmail() + " foi deletado";
+    }
+
+    public JwtTokenProvedor getJwtTokenProvedor() {
+        return jwtTokenProvedor;
     }
 }

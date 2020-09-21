@@ -14,6 +14,6 @@ public interface AvaliacaoRepositorio extends JpaRepository<Avaliacao, Avaliacao
 
     Integer deleteByAvaliacaoIdUsuarioEmailAndAvaliacaoIdDisciplinaId(String usuarioEmail, Long disciplinaId);
 
-    List<Avaliacao> findAllByAvaliacaoIdDisciplinaId(Long disciplina_id);
+    List<Avaliacao> findAllByAvaliacaoIdDisciplinaId(Long disciplinaId);
 
 }

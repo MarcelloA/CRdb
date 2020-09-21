@@ -3,6 +3,7 @@ package ufpb.minicurso.crdb.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import ufpb.minicurso.crdb.entidade.Comentario;
 
 import java.util.List;
 
@@ -12,7 +13,7 @@ import java.util.List;
 public class PerfilDisciplinaResponseDTO {
 
     private String disciplinaNome;
-    private List<String> comentarios;
+    private List<Comentario> comentarios;
     private Integer numComentarios;
     private List<Double> notas;
     private Double media;
@@ -21,7 +22,7 @@ public class PerfilDisciplinaResponseDTO {
     public Double getMedia() {
         double not = 0.0;
 
-        for(int i=0; i < notas.size(); i++) not = not + notas.get(i);
+        for (Double nota : notas) not = not + nota;
 
         return not/notas.size();
     }
@@ -29,7 +30,6 @@ public class PerfilDisciplinaResponseDTO {
     public Integer getNumComentarios() {
         return comentarios.size();
     }
-
 
 
 }

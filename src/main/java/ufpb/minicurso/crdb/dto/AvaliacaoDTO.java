@@ -3,6 +3,7 @@ package ufpb.minicurso.crdb.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import ufpb.minicurso.crdb.entidade.Comentario;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
@@ -20,13 +21,11 @@ public class AvaliacaoDTO {
 
     private String disciplinaNome;
 
-    private String comentario;
+    private Comentario comentario;
 
     @Max(10)
     @Min(0)
     private Double nota;
 
-    @Max(1)
-    @Min(0)
-    private Integer favorito;
+    private Boolean favorito;
 }
